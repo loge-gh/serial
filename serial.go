@@ -64,6 +64,9 @@ const DefaultSize = 8 // Default value for Config.Size
 
 type StopBits byte
 type Parity byte
+type RTS byte
+type CTS byte
+type FlowControl byte
 
 const (
 	Stop1     StopBits = 1
@@ -77,6 +80,26 @@ const (
 	ParityEven  Parity = 'E'
 	ParityMark  Parity = 'M' // parity bit is always 1
 	ParitySpace Parity = 'S' // parity bit is always 0
+)
+
+const (
+	RTSInvalid RTS  = iota // Special value to indicate setting should be left alone.
+    RTSOff                  // RTS off.
+    RTSOn                   // RTS on.
+    RTSFlowControl          // RTS used for flow control.
+)
+
+const (
+    CTSInvald CTS = iota // Special value to indicate setting should be left alone.
+    CTSIgnore              // CTS ignored.
+    CTSFlowControl         // CTS used for flow control.
+)
+
+const (
+    FlowControlNone  FlowControl = iota   // No flow control.
+    FlowControlXonXoff // Software flow control using XON/XOFF characters.
+    FlowControlRTSCTS  // Hardware flow control using RTS/CTS signals.
+    FlowControlDTRDSR  // Hardware flow control using DTR/DSR signals.
 )
 
 // Config contains the information needed to open a serial port.
@@ -108,10 +131,7 @@ type Config struct {
 	// Number of stop bits to use. Default is 1 (1 stop bit).
 	StopBits StopBits
 
-	// RTSFlowControl bool
-	// DTRFlowControl bool
-	// XONFlowControl bool
-
+	FlowControl FlowControl
 	// CRLFTranslate bool
 }
 
@@ -126,7 +146,7 @@ var ErrBadParity error = errors.New("unsupported parity setting")
 
 // OpenPort opens a serial port with the specified configuration
 func OpenPort(c *Config) (*Port, error) {
-	size, par, stop := c.Size, c.Parity, c.StopBits
+	size, par, stop, flow := c.Size, c.Parity, c.StopBits, c.FlowControl
 	if size == 0 {
 		size = DefaultSize
 	}
@@ -136,7 +156,7 @@ func OpenPort(c *Config) (*Port, error) {
 	if stop == 0 {
 		stop = Stop1
 	}
-	return openPort(c.Name, c.Baud, size, par, stop, c.ReadTimeout)
+	return openPort(c.Name, c.Baud, size, par, stop, c.ReadTimeout, flow)
 }
 
 // Converts the timeout values for Linux / POSIX systems

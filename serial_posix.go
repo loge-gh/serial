@@ -14,11 +14,11 @@ import (
 	"os"
 	"syscall"
 	"time"
-	//"unsafe"
 )
 
-func openPort(name string, baud int, databits byte, parity Parity, stopbits StopBits, readTimeout time.Duration) (p *Port, err error) {
-	f, err := os.OpenFile(name, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NONBLOCK, 0666)
+func openPort(name string, baud int, databits byte, parity Parity,
+stopbits StopBits, readTimeout time.Duration, flow FlowControl) (p *Port, err error) {
+	f, err := os.OpenFile(name, syscall.O_RDWR | syscall.O_NOCTTY | syscall.O_NONBLOCK, 0666)
 	if err != nil {
 		return
 	}
@@ -107,7 +107,7 @@ func openPort(name string, baud int, databits byte, parity Parity, stopbits Stop
 	// Parity settings
 	switch parity {
 	case ParityNone:
-		// default is no parity
+	// default is no parity
 	case ParityOdd:
 		st.c_cflag |= C.PARENB
 		st.c_cflag |= C.PARODD
@@ -119,7 +119,7 @@ func openPort(name string, baud int, databits byte, parity Parity, stopbits Stop
 	// Stop bits settings
 	switch stopbits {
 	case Stop1:
-		// as is, default is 1 bit
+	// as is, default is 1 bit
 	case Stop2:
 		st.c_cflag |= C.CSTOPB
 	default:
@@ -183,6 +183,52 @@ func (p *Port) Read(b []byte) (n int, err error) {
 func (p *Port) Write(b []byte) (n int, err error) {
 	return p.f.Write(b)
 }
+
+
+func (p *Port) RTSOn() error {
+	var bits uint
+	_, _, err := syscall.Syscall(
+		syscall.SYS_IOCTL,
+		uintptr(p.f.Fd()),
+		uintptr(syscall.TIOCMGET),
+		uintptr(bits), )
+	if err != 0 {
+		return errors.New("Cannot read TIOCMGET")
+	}
+	bits |= syscall.TIOCM_CTS
+	_, _, err = syscall.Syscall(
+		syscall.SYS_IOCTL,
+		uintptr(p.f.Fd()),
+		uintptr(syscall.TIOCMSET),
+		uintptr(bits), )
+	if err != 0 {
+		return errors.New("Cannot set RTS high")
+	}
+	return nil
+}
+
+func (p *Port) RTSOff() error {
+	var bits uint
+	_, _, err := syscall.Syscall(
+		syscall.SYS_IOCTL,
+		uintptr(p.f.Fd()),
+		uintptr(syscall.TIOCMGET),
+		uintptr(bits), )
+	if err != 0 {
+		return errors.New("Cannot read TIOCMGET")
+	}
+	bits &^= syscall.TIOCM_CTS
+	_, _, err = syscall.Syscall(
+		syscall.SYS_IOCTL,
+		uintptr(p.f.Fd()),
+		uintptr(syscall.TIOCMSET),
+		uintptr(bits), )
+	if err != 0 {
+		return errors.New("Cannot set RTS low")
+	}
+	return nil
+}
+
 
 // Discards data written to the port but not transmitted,
 // or data received but not read
