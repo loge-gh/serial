@@ -1,4 +1,4 @@
-// +build !windows,cgo
+// +build !windows,!linux,cgo
 
 package serial
 
@@ -113,6 +113,7 @@ stopbits StopBits, readTimeout time.Duration, flow FlowControl) (p *Port, err er
 		st.c_cflag |= C.PARODD
 	case ParityEven:
 		st.c_cflag |= C.PARENB
+		st.c_cflag &= ^C.tcflag_t(C.PARODD)
 	default:
 		return nil, ErrBadParity
 	}
